@@ -39,12 +39,86 @@ Configured via environment variables (wired through `infra/main.parameters.json`
 
 - `MCP_AUTH_REQUIRED` (default: `true`)
 - `MCP_AUTH_AUDIENCE` (default: `api://7d019514-b7a5-4501-9baa-099a4e0a627c`)
+- `MCP_AUTH_REQUIRED_ROLES` (default: `mcp-srv-001`)
+- `MCP_AUTH_ACCEPT_SCOPES` (default: empty; optional delegated fallback, e.g. `Mcp.Invoke`)
 - `MCP_ALLOWED_ORIGINS` (default: `http://localhost:6274`)
 
 Token validation uses tenant discovery keys and checks:
 
 - issuer = `https://login.microsoftonline.com/<tenant-id>/v2.0`
 - audience = `MCP_AUTH_AUDIENCE`
+- authorization = token must contain at least one role from `MCP_AUTH_REQUIRED_ROLES`
+  (or one scope from `MCP_AUTH_ACCEPT_SCOPES` when configured)
+
+Auth response semantics:
+
+- `401 Unauthorized` → missing/invalid bearer token or issuer/audience mismatch
+- `403 Forbidden` → valid token but missing required role/scope
+
+> Role assignment changes can take time to appear due to managed-identity token caching.
+> A newly assigned app role may not show up until a new token is minted.
+
+### App-role authorization prerequisites
+
+Before enabling role enforcement, make sure these exist:
+
+1. Microsoft Entra app registration for the MCP API (the `MCP_AUTH_AUDIENCE` app ID URI, for example `api://<app-id>`).
+2. App role on that API with value matching `MCP_AUTH_REQUIRED_ROLES` (default `mcp-srv-001`).
+3. App role `allowedMemberTypes` includes `Application` (required for managed identity tokens).
+4. Foundry project connection to this MCP server uses:
+   - Authentication: **Project managed identity**
+   - Audience: same value as `MCP_AUTH_AUDIENCE`
+5. Foundry project managed identity service principal is assigned the app role on the MCP API service principal.
+
+### Required Microsoft Entra ID configuration
+
+Use these steps for the MCP API app registration:
+
+1. **Define app role** on the app registration (example value: `mcp-srv-001`).
+2. **Create/confirm service principal** for that app registration in the tenant.
+3. **Assign role to Foundry project managed identity** (service principal to service principal assignment):
+   - principal = Foundry project MI service principal object ID
+   - resource = MCP API service principal object ID
+   - appRoleId = role ID for `mcp-srv-001`
+4. Confirm the Foundry connection audience equals the API app ID URI (`api://...`).
+
+> If role assignment was just added, expect delay until a fresh managed-identity token is minted.
+
+### Implementation / deployment steps
+
+1. Configure auth variables:
+   ```bash
+   azd env set MCP_AUTH_REQUIRED true
+   azd env set MCP_AUTH_AUDIENCE "api://<mcp-api-app-id>"
+   azd env set MCP_AUTH_REQUIRED_ROLES "mcp-srv-001"
+   azd env set MCP_AUTH_ACCEPT_SCOPES ""  # optional fallback; keep empty for strict app-role auth
+   ```
+2. Deploy:
+   ```bash
+   azd deploy
+   ```
+3. Verify Container App env includes:
+   - `AUTH_REQUIRED=true`
+   - `AUTH_AUDIENCE=<api://...>`
+   - `AUTH_REQUIRED_ROLES=mcp-srv-001`
+
+### Test matrix (what to verify)
+
+| Scenario | Expected result |
+|---|---|
+| No bearer token | `401` |
+| Invalid signature / wrong issuer / wrong audience | `401` |
+| Valid token without required role/scope | `403` |
+| Valid token with `roles` containing `mcp-srv-001` | `/sse` and `/messages` succeed |
+
+Recommended verification path:
+
+1. Trigger MCP calls from Foundry Playground.
+2. Inspect Container App logs for `/sse` and `/messages` requests.
+3. Decode captured token and verify claims:
+   - `aud` = `MCP_AUTH_AUDIENCE`
+   - `roles` contains required role value (`mcp-srv-001`)
+4. If role is missing but assignment is correct, wait for token refresh and re-test.
 
 Example to allow two Inspector origins:
 
@@ -87,6 +161,7 @@ The `authorization` field carries the ****** sent by Microsoft Foundry, which yo
 - [Azure Developer CLI (azd)](https://aka.ms/azd) ≥ 1.9
 - [Docker](https://docs.docker.com/get-docker/) (running locally for `azd up`)
 - An Azure subscription
+- **An existing Microsoft Foundry resource and project** (with project managed identity enabled for token acquisition)
 
 ## Deploy with `azd up`
 

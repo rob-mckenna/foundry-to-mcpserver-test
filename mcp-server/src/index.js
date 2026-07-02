@@ -8,6 +8,14 @@ const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const AUTH_REQUIRED = (process.env.AUTH_REQUIRED ?? "true").toLowerCase() === "true";
 const AUTH_AUDIENCE = (process.env.AUTH_AUDIENCE ?? "").trim();
 const AUTH_TENANT_ID = (process.env.AUTH_TENANT_ID ?? process.env.AZURE_TENANT_ID ?? "").trim();
+const AUTH_REQUIRED_ROLES = (process.env.AUTH_REQUIRED_ROLES ?? "mcp-srv-001")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const AUTH_ACCEPT_SCOPES = (process.env.AUTH_ACCEPT_SCOPES ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:6274")
   .split(",")
   .map((origin) => origin.trim())
@@ -43,6 +51,30 @@ function normalizeAudienceClaim(aud) {
     return [aud];
   }
   return [];
+}
+
+function normalizeStringArrayClaim(claim) {
+  if (Array.isArray(claim)) {
+    return claim.filter((value) => typeof value === "string");
+  }
+  if (typeof claim === "string" && claim.trim()) {
+    return [claim.trim()];
+  }
+  return [];
+}
+
+function normalizeScopeClaim(scp) {
+  if (typeof scp !== "string" || !scp.trim()) {
+    return [];
+  }
+  return scp
+    .split(" ")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function findFirstIntersection(candidates, accepted) {
+  return candidates.find((value) => accepted.includes(value));
 }
 
 const app = express();
@@ -112,6 +144,11 @@ async function requireBearerToken(req, res, next) {
     return;
   }
 
+  if (AUTH_REQUIRED_ROLES.length === 0) {
+    res.status(500).json({ error: "Server auth misconfigured: AUTH_REQUIRED_ROLES missing" });
+    return;
+  }
+
   if (!AUTH_TENANT_ID || !jwks || !jwtIssuer) {
     res.status(500).json({ error: "Server auth misconfigured: AUTH_TENANT_ID missing" });
     return;
@@ -146,7 +183,26 @@ async function requireBearerToken(req, res, next) {
       );
     }
 
+    const tokenRoles = normalizeStringArrayClaim(payload.roles);
+    const tokenScopes = normalizeScopeClaim(payload.scp);
+    const matchedRole = findFirstIntersection(tokenRoles, AUTH_REQUIRED_ROLES);
+    const matchedScope = AUTH_ACCEPT_SCOPES.length > 0
+      ? findFirstIntersection(tokenScopes, AUTH_ACCEPT_SCOPES)
+      : null;
+
+    if (!matchedRole && !matchedScope) {
+      console.log(
+        `[AUTH] Forbidden: oid=${payload.oid ?? "<unknown>"} roles=${JSON.stringify(tokenRoles)} scopes=${JSON.stringify(tokenScopes)} requiredRoles=${JSON.stringify(AUTH_REQUIRED_ROLES)} acceptedScopes=${JSON.stringify(AUTH_ACCEPT_SCOPES)}`
+      );
+      res.status(403).json({ error: "Forbidden: missing required app role" });
+      return;
+    }
+
+    console.log(
+      `[AUTH] Authorized: oid=${payload.oid ?? "<unknown>"} role=${matchedRole ?? "<none>"} scope=${matchedScope ?? "<none>"}`
+    );
     req.auth = payload;
+    req.authz = { matchedRole, matchedScope };
     next();
   } catch (error) {
     console.log(`[AUTH] Token validation failed: ${error}`);
@@ -291,5 +347,7 @@ app.listen(PORT, () => {
   console.log(`[SERVER]   Messages http://0.0.0.0:${PORT}/messages`);
   console.log(`[SERVER]   Health   http://0.0.0.0:${PORT}/health`);
   console.log(`[SERVER] Auth required=${AUTH_REQUIRED} tenant=${AUTH_TENANT_ID || "<unset>"} audience=${AUTH_AUDIENCE || "<unset>"}`);
+  console.log(`[SERVER] Required roles=${AUTH_REQUIRED_ROLES.join(",") || "<none>"}`);
+  console.log(`[SERVER] Accepted delegated scopes=${AUTH_ACCEPT_SCOPES.join(",") || "<none>"}`);
   console.log(`[SERVER] Allowed origins=${ALLOW_ANY_ORIGIN ? "*" : ALLOWED_ORIGINS.join(",")}`);
 });

@@ -11,6 +11,8 @@ param containerRegistryName string
 param authRequired bool = true
 param authAudience string
 param authTenantId string
+param authRequiredRoles string = 'mcp-srv-001'
+param authAcceptScopes string = ''
 param allowedOrigins string = 'http://localhost:6274'
 
 @description('Set to true on re-provision to preserve the running image instead of resetting to the placeholder')
@@ -96,6 +98,14 @@ resource app 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'AUTH_TENANT_ID'
               value: authTenantId
+            }
+            {
+              name: 'AUTH_REQUIRED_ROLES'
+              value: authRequiredRoles
+            }
+            {
+              name: 'AUTH_ACCEPT_SCOPES'
+              value: authAcceptScopes
             }
             {
               name: 'ALLOWED_ORIGINS'

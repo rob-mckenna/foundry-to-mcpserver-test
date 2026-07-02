@@ -22,6 +22,12 @@ param authAudience string = 'api://7d019514-b7a5-4501-9baa-099a4e0a627c'
 @description('Whether the MCP server enforces bearer token validation')
 param authRequired bool = true
 
+@description('Comma-separated app role values required in the token roles claim')
+param authRequiredRoles string = 'mcp-srv-001'
+
+@description('Optional comma-separated delegated scopes accepted as fallback')
+param authAcceptScopes string = ''
+
 @description('Comma-separated list of allowed browser origins for CORS')
 param allowedOrigins string = 'http://localhost:6274'
 
@@ -121,6 +127,8 @@ module mcpServer 'modules/mcp-server.bicep' = {
     authRequired: authRequired
     authAudience: authAudience
     authTenantId: tenant().tenantId
+    authRequiredRoles: authRequiredRoles
+    authAcceptScopes: authAcceptScopes
     allowedOrigins: allowedOrigins
   }
 }

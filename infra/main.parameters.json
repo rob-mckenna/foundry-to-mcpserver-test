@@ -17,6 +17,12 @@
     "authRequired": {
       "value": "${MCP_AUTH_REQUIRED=true}"
     },
+    "authRequiredRoles": {
+      "value": "${MCP_AUTH_REQUIRED_ROLES=mcp-srv-001}"
+    },
+    "authAcceptScopes": {
+      "value": "${MCP_AUTH_ACCEPT_SCOPES=}"
+    },
     "allowedOrigins": {
       "value": "${MCP_ALLOWED_ORIGINS=http://localhost:6274}"
     }
