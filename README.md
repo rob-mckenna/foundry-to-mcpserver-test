@@ -2,6 +2,21 @@
 
 Testing Microsoft Foundry sending a Managed Identity (Entra ID) token to an MCP Server deployed on Azure Container Apps.
 
+## ⚠️ Disclaimer
+
+**Purpose**: This repository is for **testing and validating** the setup of:
+- Microsoft Foundry MCP Tool connections to a customer MCP server
+- MS Entra ID Managed Identity token acquisition and forwarding
+- App-role-based authorization in bearer tokens
+
+**Token Logging**: For troubleshooting purposes, this implementation logs the full bearer token in Container App logs. **This logging approach is for initial setup and testing only** and should **not be carried forward to production**. Once Microsoft Foundry and MCP Tool setup is validated and working, remove or disable token logging before moving to production.
+
+**Production Recommendations**:
+- Disable or redact token logging in `mcp-server/src/index.js` (line ~90)
+- Use structured logging that captures only relevant claims (issuer, audience, roles) without the full token
+- Implement audit logging for authorization decisions (403 Forbidden responses)
+- Review and follow your organization's security and compliance requirements for bearer token handling
+
 ## Architecture
 
 ```
