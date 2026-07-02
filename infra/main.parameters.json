@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "${AZURE_ENV_NAME}"
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "mcpServerExists": {
+      "value": "${SERVICE_MCP_SERVER_RESOURCE_EXISTS=false}"
+    },
+    "authAudience": {
+      "value": "${MCP_AUTH_AUDIENCE=api://7d019514-b7a5-4501-9baa-099a4e0a627c}"
+    },
+    "authRequired": {
+      "value": "${MCP_AUTH_REQUIRED=true}"
+    },
+    "authRequiredRoles": {
+      "value": "${MCP_AUTH_REQUIRED_ROLES=mcp-srv-001}"
+    },
+    "authAcceptScopes": {
+      "value": "${MCP_AUTH_ACCEPT_SCOPES=}"
+    },
+    "allowedOrigins": {
+      "value": "${MCP_ALLOWED_ORIGINS=http://localhost:6274}"
+    }
+  }
+}
