@@ -10,6 +10,15 @@
     },
     "mcpServerExists": {
       "value": "${SERVICE_MCP_SERVER_RESOURCE_EXISTS=false}"
+    },
+    "authAudience": {
+      "value": "${MCP_AUTH_AUDIENCE=api://7d019514-b7a5-4501-9baa-099a4e0a627c}"
+    },
+    "authRequired": {
+      "value": "${MCP_AUTH_REQUIRED=true}"
+    },
+    "allowedOrigins": {
+      "value": "${MCP_ALLOWED_ORIGINS=http://localhost:6274}"
     }
   }
 }

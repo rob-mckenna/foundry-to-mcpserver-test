@@ -8,6 +8,10 @@ param tags object = {}
 param identityName string
 param containerAppsEnvironmentName string
 param containerRegistryName string
+param authRequired bool = true
+param authAudience string
+param authTenantId string
+param allowedOrigins string = 'http://localhost:6274'
 
 @description('Set to true on re-provision to preserve the running image instead of resetting to the placeholder')
 param appExists bool = false
@@ -81,6 +85,22 @@ resource app 'Microsoft.App/containerApps@2023-05-01' = {
               name: 'NODE_ENV'
               value: 'production'
             }
+            {
+              name: 'AUTH_REQUIRED'
+              value: string(authRequired)
+            }
+            {
+              name: 'AUTH_AUDIENCE'
+              value: authAudience
+            }
+            {
+              name: 'AUTH_TENANT_ID'
+              value: authTenantId
+            }
+            {
+              name: 'ALLOWED_ORIGINS'
+              value: allowedOrigins
+            }
           ]
           resources: {
             cpu: json('0.5')
@@ -110,7 +130,9 @@ resource app 'Microsoft.App/containerApps@2023-05-01' = {
       ]
       scale: {
         minReplicas: 1
-        maxReplicas: 10
+        // SSE sessions are stored in-memory per replica; keep single replica
+        // so /sse and /messages for the same session always hit the same host.
+        maxReplicas: 1
       }
     }
   }

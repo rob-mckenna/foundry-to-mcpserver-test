@@ -31,6 +31,28 @@ Microsoft Foundry
 | `POST /messages?sessionId=<id>` | JSON-RPC message endpoint |
 | `GET /health` | Health check / liveness probe |
 
+## Security settings
+
+The server can validate Entra bearer tokens and restrict browser origins for MCP Inspector.
+
+Configured via environment variables (wired through `infra/main.parameters.json`):
+
+- `MCP_AUTH_REQUIRED` (default: `true`)
+- `MCP_AUTH_AUDIENCE` (default: `api://7d019514-b7a5-4501-9baa-099a4e0a627c`)
+- `MCP_ALLOWED_ORIGINS` (default: `http://localhost:6274`)
+
+Token validation uses tenant discovery keys and checks:
+
+- issuer = `https://login.microsoftonline.com/<tenant-id>/v2.0`
+- audience = `MCP_AUTH_AUDIENCE`
+
+Example to allow two Inspector origins:
+
+```bash
+azd env set MCP_ALLOWED_ORIGINS "http://localhost:6274,https://inspector.modelcontextprotocol.io"
+azd deploy
+```
+
 ### Tool: `get_weather`
 
 ```json
@@ -99,6 +121,19 @@ azd deploy        # redeploy the app only (no infra changes)
 azd provision     # reprovision infra only
 azd up            # both
 ```
+
+## Smoke test after deploy
+
+Run an end-to-end MCP handshake check (health, SSE endpoint event, and initialize call):
+
+```bash
+cd mcp-server
+MCP_SERVER_URL="https://<SERVICE_MCP_SERVER_URI_HOST>" \
+MCP_BEARER_TOKEN="$(az account get-access-token --resource api://7d019514-b7a5-4501-9baa-099a4e0a627c --query accessToken -o tsv)" \
+npm run smoke
+```
+
+If you disabled auth (`MCP_AUTH_REQUIRED=false`), omit `MCP_BEARER_TOKEN`.
 
 ### Tear down
 
