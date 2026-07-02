@@ -1,4 +1,4 @@
-# foundry-to-mcpserver-test
+# MS Foundry to MCP Server / Managed Identity (Entra ID) Testing
 
 Testing Microsoft Foundry sending a Managed Identity (Entra ID) token to an MCP Server deployed on Azure Container Apps.
 
