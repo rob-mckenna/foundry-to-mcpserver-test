@@ -239,3 +239,7 @@ In your existing Microsoft Foundry project, add the MCP server connection:
 - **Authentication**: Managed Identity (the project managed identity token is forwarded in the `Authorization: ****** header automatically)
 
 The full token will appear in the Container App log stream immediately on connection.
+
+## License
+
+This repository is licensed under the [MIT License](LICENSE).
