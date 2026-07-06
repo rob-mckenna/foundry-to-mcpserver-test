@@ -1,9 +1,9 @@
-# Deploy to an Existing AKS Cluster
+# Deploy to AKS (Existing or New Cluster)
 
 This repository supports two deployment paths:
 
 - **Azure Container Apps (ACA)** via `azd up` (default path in the root README)
-- **AKS** via Kubernetes manifests and `aks/deploy.sh` (this document)
+- **AKS** via Kubernetes manifests and `aks/deploy.sh` (this document; supports existing or new cluster)
 
 The AKS path is intentionally manual and parallel to ACA. It does not integrate with `azd` service hosting because `azure.yaml` uses `host: containerapp`.
 
@@ -20,20 +20,17 @@ Microsoft Foundry
 
 ## Prerequisites
 
-1. Existing AKS cluster and working `kubectl` context.
-2. Existing ACR (this repo's ACR or your own).
-3. AKS attached to ACR:
-   ```bash
-   az aks update -g <aks-resource-group> -n <aks-cluster-name> --attach-acr <acr-name>
-   ```
-4. NGINX Ingress installed (or equivalent ingress controller).
-5. DNS hostname mapped to ingress endpoint (required for Microsoft Foundry connection).
-6. TLS certificate setup:
+1. Existing ACR (this repo's ACR or your own).
+2. AKS cluster path:
+   - Existing cluster, or
+   - Let `aks/deploy.sh` create one for you.
+3. DNS hostname mapped to ingress endpoint (required for Microsoft Foundry connection).
+4. TLS certificate setup:
    - Either cert-manager + ClusterIssuer, or
    - Pre-created TLS secret.
-7. Azure CLI, kubectl, and `envsubst`.
+5. Azure CLI, kubectl, and `envsubst`.
 
-Install ingress-nginx example:
+Install ingress-nginx example (if not installed and not using `INSTALL_INGRESS_NGINX=true`):
 
 ```bash
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
@@ -60,12 +57,47 @@ export ACR_NAME=<acr-name>
 export MCP_HOST=<public-mcp-hostname>  # example: mcp.example.com
 ```
 
+### Existing cluster workflow
+
+Use your current kube context, or set cluster identifiers so the script fetches credentials:
+
+```bash
+export AKS_RESOURCE_GROUP=<aks-resource-group>
+export AKS_CLUSTER_NAME=<aks-cluster-name>
+```
+
+If `AKS_RESOURCE_GROUP` and `AKS_CLUSTER_NAME` are set, `deploy.sh` runs:
+
+- `az aks get-credentials --overwrite-existing`
+- `az aks update --attach-acr` (unless `ATTACH_ACR=false`)
+
+### New cluster workflow (create if missing)
+
+```bash
+export AKS_RESOURCE_GROUP=<aks-resource-group>
+export AKS_CLUSTER_NAME=<new-aks-cluster-name>
+export CREATE_AKS_IF_MISSING=true
+```
+
+Optional create parameters:
+
+```bash
+export AKS_LOCATION=eastus
+export AKS_NODE_COUNT=1
+export AKS_NODE_VM_SIZE=Standard_D4s_v3
+export AKS_KUBERNETES_VERSION=1.30.0
+```
+
+When enabled, the script creates resource group and AKS cluster if it does not already exist.
+
 Common optional overrides:
 
 ```bash
 export IMAGE_TAG=<tag>                          # default: current git short SHA
 export TLS_SECRET_NAME=mcp-server-tls
 export CERT_MANAGER_CLUSTER_ISSUER=letsencrypt-prod
+export INSTALL_INGRESS_NGINX=true              # install/upgrade ingress-nginx with Helm
+export ATTACH_ACR=true                         # default true
 export AUTH_REQUIRED=true
 export AUTH_AUDIENCE=api://<mcp-api-app-id>
 export AUTH_TENANT_ID=<tenant-id>
@@ -84,11 +116,14 @@ From repository root:
 
 `deploy.sh` phases:
 
-1. Build and push image to ACR (`az acr build` by default).
-2. Render manifests with `envsubst`.
-3. Apply namespace, configmap, deployment, service, and ingress.
-4. Wait for rollout completion and print MCP URL.
-5. Optionally run smoke test.
+1. Optionally create AKS cluster if missing (`CREATE_AKS_IF_MISSING=true`).
+2. Fetch AKS credentials and ensure ACR attachment (unless `ATTACH_ACR=false`).
+3. Optionally install ingress-nginx (`INSTALL_INGRESS_NGINX=true`).
+4. Build and push image to ACR (`az acr build` by default).
+5. Render manifests with `envsubst`.
+6. Apply namespace, configmap, deployment, service, and ingress.
+7. Wait for rollout completion and print MCP URL.
+8. Optionally run smoke test.
 
 ### Optional behaviors
 
@@ -106,6 +141,16 @@ From repository root:
   ```bash
   export RUN_SMOKE_TEST=true
   export MCP_BEARER_TOKEN=<token-if-auth-required>
+  ./aks/deploy.sh
+  ```
+- Full create-and-deploy in one flow:
+  ```bash
+  export ACR_NAME=<acr-name>
+  export MCP_HOST=<mcp-hostname>
+  export AKS_RESOURCE_GROUP=<aks-rg>
+  export AKS_CLUSTER_NAME=<aks-name>
+  export CREATE_AKS_IF_MISSING=true
+  export INSTALL_INGRESS_NGINX=true
   ./aks/deploy.sh
   ```
 

@@ -25,6 +25,15 @@ CERT_MANAGER_CLUSTER_ISSUER="${CERT_MANAGER_CLUSTER_ISSUER:-}"
 USE_ACR_BUILD="${USE_ACR_BUILD:-true}"
 APPLY_SECRET_TEMPLATE="${APPLY_SECRET_TEMPLATE:-false}"
 RUN_SMOKE_TEST="${RUN_SMOKE_TEST:-false}"
+CREATE_AKS_IF_MISSING="${CREATE_AKS_IF_MISSING:-false}"
+AKS_RESOURCE_GROUP="${AKS_RESOURCE_GROUP:-}"
+AKS_CLUSTER_NAME="${AKS_CLUSTER_NAME:-}"
+AKS_LOCATION="${AKS_LOCATION:-${AZURE_LOCATION:-eastus}}"
+AKS_NODE_COUNT="${AKS_NODE_COUNT:-1}"
+AKS_NODE_VM_SIZE="${AKS_NODE_VM_SIZE:-Standard_D4s_v3}"
+AKS_KUBERNETES_VERSION="${AKS_KUBERNETES_VERSION:-}"
+ATTACH_ACR="${ATTACH_ACR:-true}"
+INSTALL_INGRESS_NGINX="${INSTALL_INGRESS_NGINX:-false}"
 
 AUTH_REQUIRED="${AUTH_REQUIRED:-true}"
 AUTH_AUDIENCE="${AUTH_AUDIENCE:-api://7d019514-b7a5-4501-9baa-099a4e0a627c}"
@@ -44,6 +53,61 @@ if [[ -z "${MCP_HOST}" ]]; then
 fi
 
 ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-$(az acr show -n "${ACR_NAME}" --query loginServer -o tsv)}"
+
+if [[ -n "${AKS_RESOURCE_GROUP}" || -n "${AKS_CLUSTER_NAME}" || "${CREATE_AKS_IF_MISSING}" == "true" ]]; then
+  if [[ -z "${AKS_RESOURCE_GROUP}" || -z "${AKS_CLUSTER_NAME}" ]]; then
+    echo "Set both AKS_RESOURCE_GROUP and AKS_CLUSTER_NAME when using AKS cluster management options." >&2
+    exit 1
+  fi
+
+  if az aks show -g "${AKS_RESOURCE_GROUP}" -n "${AKS_CLUSTER_NAME}" >/dev/null 2>&1; then
+    echo "Using existing AKS cluster ${AKS_CLUSTER_NAME} in ${AKS_RESOURCE_GROUP}."
+  else
+    if [[ "${CREATE_AKS_IF_MISSING}" != "true" ]]; then
+      echo "AKS cluster ${AKS_CLUSTER_NAME} not found in ${AKS_RESOURCE_GROUP}. Set CREATE_AKS_IF_MISSING=true to create it." >&2
+      exit 1
+    fi
+
+    echo "Creating resource group ${AKS_RESOURCE_GROUP} in ${AKS_LOCATION}."
+    az group create -n "${AKS_RESOURCE_GROUP}" -l "${AKS_LOCATION}" >/dev/null
+
+    echo "Creating AKS cluster ${AKS_CLUSTER_NAME}."
+    aks_create_cmd=(az aks create
+      -g "${AKS_RESOURCE_GROUP}"
+      -n "${AKS_CLUSTER_NAME}"
+      -l "${AKS_LOCATION}"
+      --node-count "${AKS_NODE_COUNT}"
+      --node-vm-size "${AKS_NODE_VM_SIZE}"
+      --enable-managed-identity
+      --generate-ssh-keys)
+
+    if [[ -n "${AKS_KUBERNETES_VERSION}" ]]; then
+      aks_create_cmd+=(--kubernetes-version "${AKS_KUBERNETES_VERSION}")
+    fi
+
+    if [[ "${ATTACH_ACR}" == "true" ]]; then
+      aks_create_cmd+=(--attach-acr "${ACR_NAME}")
+    fi
+
+    "${aks_create_cmd[@]}"
+  fi
+
+  echo "Fetching AKS credentials."
+  az aks get-credentials -g "${AKS_RESOURCE_GROUP}" -n "${AKS_CLUSTER_NAME}" --overwrite-existing
+
+  if [[ "${ATTACH_ACR}" == "true" ]]; then
+    echo "Ensuring AKS cluster has ACR pull access."
+    az aks update -g "${AKS_RESOURCE_GROUP}" -n "${AKS_CLUSTER_NAME}" --attach-acr "${ACR_NAME}" >/dev/null
+  fi
+fi
+
+if [[ "${INSTALL_INGRESS_NGINX}" == "true" ]]; then
+  require_cmd helm
+  echo "Installing/upgrading ingress-nginx."
+  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1 || true
+  helm repo update >/dev/null
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
+fi
 
 if [[ "${USE_ACR_BUILD}" == "true" ]]; then
   az acr build \

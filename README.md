@@ -198,15 +198,17 @@ azd up
 3. Push it to the provisioned Azure Container Registry
 4. Deploy it to the Container App
 
-## Alternative deployment: existing AKS cluster
+## Alternative deployment: AKS (existing or new cluster)
 
-If you want to deploy the same MCP server to an existing AKS cluster instead of Azure Container Apps, use the AKS path under `/aks`.
+If you want to deploy the same MCP server to AKS instead of Azure Container Apps, use the AKS path under `/aks`.
 
 - Guide: [`aks/README-aks.md`](aks/README-aks.md)
 - Script: `./aks/deploy.sh`
 - Kubernetes assets: `aks/manifests/*.yaml`
 
-This AKS deployment path is manual (`kubectl` + script) and intentionally separate from `azd` provisioning.
+This AKS deployment path is manual (`kubectl` + script), intentionally separate from `azd`, and now supports:
+- deploying to an existing AKS cluster
+- optionally creating an AKS cluster first (`CREATE_AKS_IF_MISSING=true`)
 
 The MCP server URL is printed at the end:
 
