@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-server-config
+  namespace: mcp-server
+data:
+  PORT: "3000"
+  NODE_ENV: "production"
+  AUTH_REQUIRED: "${AUTH_REQUIRED}"
+  AUTH_AUDIENCE: "${AUTH_AUDIENCE}"
+  AUTH_TENANT_ID: "${AUTH_TENANT_ID}"
+  AUTH_REQUIRED_ROLES: "${AUTH_REQUIRED_ROLES}"
+  AUTH_ACCEPT_SCOPES: "${AUTH_ACCEPT_SCOPES}"
+  ALLOWED_ORIGINS: "${ALLOWED_ORIGINS}"
