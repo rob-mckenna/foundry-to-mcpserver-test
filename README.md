@@ -139,11 +139,11 @@ Validation script (Entra + Foundry config sanity check):
 
 ```bash
 pwsh ./validate-entra-mcp-setup.ps1 \
-  -ApiApplicationId "7d019514-b7a5-4501-9baa-099a4e0a627c" \
-  -RequiredRoles "mcp-srv-001,Mcp.AppInvoke" \
-  -FoundryProjectEndpoint "https://msf-demo-01.services.ai.azure.com/api/projects/msf-demo-01-proj01" \
-  -ConnectionName "mcp-entraid-aks-test" \
-  -ExpectedTargetSseUrl "https://20.65.31.79.nip.io/sse"
+  -ApiApplicationId "<mcp-api-app-id-guid>" \
+  -RequiredRoles "<required-role-1>,<required-role-2>" \
+  -FoundryProjectEndpoint "https://<foundry-account>.services.ai.azure.com/api/projects/<foundry-project-name>" \
+  -ConnectionName "<foundry-mcp-connection-name>" \
+  -ExpectedTargetSseUrl "https://<mcp-server-host>/sse"
 ```
 
 The script validates:
