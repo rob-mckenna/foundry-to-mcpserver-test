@@ -171,6 +171,31 @@ The `authorization` field carries the ****** sent by Microsoft Foundry, which yo
 }
 ```
 
+For AKS-based deployments, use:
+
+```bash
+pwsh ./pull-aks-request-logs.ps1
+```
+
+The script writes AKS console logs, extracted MCP request lines, and Authorization values into `./logs`.
+
+## AKS troubleshooting
+
+### Session-affinity / replica caveat for SSE
+
+This MCP server keeps SSE session state in process memory. For the `/sse` + `/messages` flow to work reliably, both requests for a session must reach the same backend instance.
+
+If you run multiple replicas without sticky-session routing, Foundry may open `/sse` on one pod and send `/messages` to another, which causes:
+
+- `400 Bad Request`
+- `{"error":"Session not found"}`
+
+Current safe default in this repo:
+
+- Run the MCP deployment with `replicas: 1` for AKS testing scenarios.
+
+If you need horizontal scale later, add explicit sticky-session/session-affinity at ingress/proxy level or move session state to shared storage.
+
 ## Prerequisites
 
 - [Azure Developer CLI (azd)](https://aka.ms/azd) ≥ 1.9
