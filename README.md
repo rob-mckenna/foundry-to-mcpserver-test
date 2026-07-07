@@ -234,6 +234,48 @@ If you need horizontal scale later, add explicit sticky-session/session-affinity
 - An Azure subscription
 - **An existing Microsoft Foundry resource and project** (with project managed identity enabled for token acquisition)
 
+## Deployment options
+
+Choose one of the following deployment paths:
+
+### Option 1: Azure Container Apps (ACA) via `azd` (default)
+
+Use this when you want the full infra+app deployment flow managed by this repo:
+
+- Provision + deploy: `azd up`
+- App-only redeploy: `azd deploy`
+- Infra-only reprovision: `azd provision`
+
+See **Deploy with `azd up`** below for the full steps.
+
+### Option 2: Deploy to an existing AKS cluster
+
+Use this when you already have an AKS cluster and want to run the MCP server there:
+
+1. Set your AKS context:
+   ```bash
+   az aks get-credentials --resource-group <rg> --name <aks-name> --overwrite-existing
+   ```
+2. Review and update `k8s/aks/mcp-server.yaml` for your image, tenant/audience, and required roles.
+3. Apply the deployment:
+   ```bash
+   kubectl apply -f k8s/aks/mcp-server.yaml
+   ```
+4. (Optional HTTPS ingress) install ingress/cert-manager and apply:
+   ```bash
+   kubectl apply -f k8s/aks/mcp-server-ingress.yaml
+   ```
+
+### Option 3: Provision a new AKS cluster, then deploy
+
+Use this when you need to create AKS first:
+
+1. Create AKS (example):
+   ```bash
+   az aks create --resource-group <rg> --name <aks-name> --location <region> --node-count 1 --node-vm-size Standard_D2s_v5 --network-plugin azure --network-plugin-mode overlay --network-dataplane cilium --attach-acr <acr-name> --enable-oidc-issuer --enable-workload-identity --generate-ssh-keys
+   ```
+2. Then follow **Option 2** to deploy manifests to that cluster.
+
 ## Deploy with `azd up`
 
 ```bash
