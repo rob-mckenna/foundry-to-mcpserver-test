@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mcp-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: mcp-server
+  labels:
+    app: mcp-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      containers:
+        - name: mcp-server
+          image: crdonnyjjdtavyg.azurecr.io/foundry-mcp-server/mcp-server-msf-mcp-srv-test:azd-deploy-1783004388
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: PORT
+              value: "3000"
+            - name: AUTH_REQUIRED
+              value: "true"
+            - name: AUTH_AUDIENCE
+              value: "api://7d019514-b7a5-4501-9baa-099a4e0a627c"
+            - name: AUTH_TENANT_ID
+              value: "e500988a-f788-4f81-b1ba-e3ad7cd66171"
+            - name: AUTH_REQUIRED_ROLES
+              value: "mcp-srv-001"
+            - name: AUTH_ACCEPT_SCOPES
+              value: ""
+            - name: ALLOWED_ORIGINS
+              value: "http://localhost:6274"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server-lb
+  namespace: mcp-server
+spec:
+  type: LoadBalancer
+  selector:
+    app: mcp-server
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 3000

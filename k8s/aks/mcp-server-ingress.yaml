@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server
+  namespace: mcp-server
+spec:
+  type: ClusterIP
+  selector:
+    app: mcp-server
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # Replace with your team email for cert expiration notices.
+    email: mcp-admin@outlook.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
