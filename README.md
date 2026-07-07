@@ -135,6 +135,37 @@ Recommended verification path:
    - `roles` contains required role value (`mcp-srv-001`)
 4. If role is missing but assignment is correct, wait for token refresh and re-test.
 
+Validation script (Entra + Foundry config sanity check):
+
+```bash
+pwsh ./validate-entra-mcp-setup.ps1 \
+  -ApiApplicationId "7d019514-b7a5-4501-9baa-099a4e0a627c" \
+  -RequiredRoles "mcp-srv-001,Mcp.AppInvoke" \
+  -FoundryProjectEndpoint "https://msf-demo-01.services.ai.azure.com/api/projects/msf-demo-01-proj01" \
+  -ConnectionName "mcp-entraid-aks-test" \
+  -ExpectedTargetSseUrl "https://20.65.31.79.nip.io/sse"
+```
+
+The script validates:
+- API app registration and service principal exist
+- required app roles exist, are enabled, and allow `Application` member type
+- Foundry project managed identity exists
+- app-role assignments exist from Foundry MI service principal to API service principal
+- optional Foundry connection auth type/audience/target checks
+
+Required permissions to run the validator successfully:
+
+- Azure management-plane read access on the Foundry project scope (or parent scope), including:
+  - `Microsoft.CognitiveServices/accounts/projects/read`
+  - `Microsoft.CognitiveServices/accounts/projects/connections/read` (when using `-ConnectionName`)
+  - `Microsoft.Resources/subscriptions/resources/read`
+- Microsoft Entra ID / Graph read access to view:
+  - Applications and Service Principals
+  - Service Principal app role assignments
+- Azure CLI signed in to the correct tenant/subscription.
+
+`Reader` is typically enough on Azure scope; in Entra ID, `Directory Readers` (or equivalent read permissions) is typically required.
+
 Example to allow two Inspector origins:
 
 ```bash
@@ -170,6 +201,31 @@ The `authorization` field carries the ****** sent by Microsoft Foundry, which yo
   }
 }
 ```
+
+For AKS-based deployments, use:
+
+```bash
+pwsh ./pull-aks-request-logs.ps1
+```
+
+The script writes AKS console logs, extracted MCP request lines, and Authorization values into `./logs`.
+
+## AKS troubleshooting
+
+### Session-affinity / replica caveat for SSE
+
+This MCP server keeps SSE session state in process memory. For the `/sse` + `/messages` flow to work reliably, both requests for a session must reach the same backend instance.
+
+If you run multiple replicas without sticky-session routing, Foundry may open `/sse` on one pod and send `/messages` to another, which causes:
+
+- `400 Bad Request`
+- `{"error":"Session not found"}`
+
+Current safe default in this repo:
+
+- Run the MCP deployment with `replicas: 1` for AKS testing scenarios.
+
+If you need horizontal scale later, add explicit sticky-session/session-affinity at ingress/proxy level or move session state to shared storage.
 
 ## Prerequisites
 
